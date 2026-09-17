@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify release version
+        shell: pwsh
+        run: node -e "const pkg=require('./package.json'); const expected='v'+pkg.version; if(process.env.GITHUB_REF_NAME!==expected){throw new Error('Tag '+process.env.GITHUB_REF_NAME+' must equal '+expected)}"
+      - name: Prepare signing certificate
+        shell: pwsh
+        env:
+          SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_BASE64) -or [string]::IsNullOrWhiteSpace($env:SIGNING_CERTIFICATE_PASSWORD)) {
+            throw 'Public releases require WINDOWS_CERTIFICATE_BASE64 and WINDOWS_CERTIFICATE_PASSWORD secrets.'
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'gargantua-signing.pfx'
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE_BASE64))
+          "WINDOWS_CERTIFICATE_FILE=$certificatePath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - run: pnpm check
+      - run: pnpm make
+        env:
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+      - name: Verify Windows signatures
+        shell: pwsh
+        run: |
+          $targets = @(
+            (Resolve-Path 'out/Gargantua-win32-x64/Gargantua.exe').Path,
+            (Resolve-Path 'out/make/squirrel.windows/x64/Gargantua-Setup.exe').Path
+          )
+          foreach ($target in $targets) {
+            $signature = Get-AuthenticodeSignature -FilePath $target
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid Authenticode signature for $target ($($signature.Status)): $($signature.StatusMessage)"
+            }
+          }
+      - name: Smoke-test installer lifecycle
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1 -SetupPath 'out/make/squirrel.windows/x64/Gargantua-Setup.exe'
+      - name: Publish release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = (Resolve-Path 'out/make/squirrel.windows/x64/Gargantua-Setup.exe').Path
+          $portable = (Resolve-Path 'out/make/zip/win32/x64/Gargantua-win32-x64-*.zip').Path
+          $checksums = (Resolve-Path 'out/make/SHA256SUMS.txt').Path
+          $assets = @($setup, $portable, $checksums)
+          gh release view $env:GITHUB_REF_NAME --json tagName | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME $assets --clobber
+          } else {
+            gh release create $env:GITHUB_REF_NAME $assets --verify-tag --generate-notes --title "Gargantua $env:GITHUB_REF_NAME"
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release publishing failed.' }

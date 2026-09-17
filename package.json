@@ -1,0 +1,54 @@
+{
+  "name": "gargantua-black-hole",
+  "productName": "Gargantua",
+  "version": "1.0.0",
+  "description": "An offline cinematic black hole simulator with interactive gravitational lensing.",
+  "author": "Fan Zhu",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "dist/electron/main.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FanZhu1998/Black_Hole.git"
+  },
+  "engines": {
+    "node": ">=22.12",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "postinstall": "install-electron",
+    "build": "node scripts/build.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
+    "capture:preview": "node scripts/capture-readme-preview.mjs",
+    "dev": "electron-forge start",
+    "preview": "node scripts/serve.mjs",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "pretest": "node scripts/build.mjs",
+    "test": "node --test test/unit/*.test.js",
+    "pretest:browser": "node scripts/build.mjs",
+    "test:browser": "playwright test test/browser",
+    "pretest:electron": "node scripts/build.mjs",
+    "test:electron": "playwright test test/electron",
+    "check": "pnpm run build && pnpm run test && pnpm run test:browser && pnpm run test:electron"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "1.0.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-deb": "7.11.2",
+    "@electron-forge/maker-rpm": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
+    "@electron-forge/plugin-fuses": "7.11.2",
+    "@electron/fuses": "2.1.3",
+    "@playwright/test": "1.63.0",
+    "electron": "44.4.1",
+    "png-to-ico": "3.0.2",
+    "sharp": "0.35.4"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Gargantua JavaScript and desktop build output
+node_modules/
+.pnpm-store/
+dist/
+out/
+assets/generated/
+playwright-report/
+test-results/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

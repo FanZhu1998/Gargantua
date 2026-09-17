@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm make
+      - name: Smoke-test installer lifecycle
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1 -SetupPath 'out/make/squirrel.windows/x64/Gargantua-Setup.exe'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gargantua-windows-${{ github.sha }}
+          path: |
+            out/make/SHA256SUMS.txt
+            out/make/**/*.exe
+            out/make/**/*.zip
+            out/make/**/*.nupkg
+            out/make/**/RELEASES
+          if-no-files-found: error
+          retention-days: 14
